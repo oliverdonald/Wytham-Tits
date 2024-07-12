@@ -1,0 +1,62 @@
+# Calculate the proportion of birds that stayed in each plot
+prop_plot_rearing <- combined %>%
+  mutate(
+    plot = toupper(plot),
+    plot_rearing = toupper(plot_rearing)
+  ) %>%
+  group_by(plot) %>%
+  filter(!is.na(plot)) %>%
+  summarise(
+    prop_stayed = sum(plot == plot_rearing) / n(),
+    sample_size = n()
+  )
+
+# Display the proportion of birds that stayed in each plot
+print(prop_plot)
+
+# Calculate the proportion of birds that stayed in each plot
+prop_plot_rearing <- combined %>%
+  mutate(
+    plot = toupper(plot),
+    plot_rearing = toupper(plot_rearing)
+  ) %>%
+  group_by(plot) %>%
+  filter(!is.na(plot)) %>%
+  summarise(
+    prop_stayed = sum(plot == plot_rearing) / n(),
+    sample_size = n(),
+    environmental_quality = first(environmental_quality),
+    nestbox_availability = first(nestbox_availability)
+  )
+
+print(prop_plot)
+
+prop_plot_rearing <- combined |>
+  # Ensure that the plot and plot_rearing columns are in the same case
+  dplyr::mutate(
+    plot = toupper(plot),
+    plot_rearing = toupper(plot_rearing)
+  ) |>
+  dplyr::group_by(plot_rearing) |>
+  # remove rows where plot is missing
+  dplyr::filter(!is.na(plot_rearing)) |>
+  dplyr::summarise(
+    prop_stayed = sum(plot == plot_rearing) / dplyr::n(),
+    sample_size = dplyr::n()
+  )
+prop_stayed = sum(plot == plot_rearing) / dplyr::n()
+
+# ANOVA
+tit_anova <- aov( ~ environmental_quality * nestbox_availability, data = combined)
+summary(tit_anova)
+
+# Visualize the interaction
+ggplot(prop_plot, aes(x = environmental_quality, y = prop_stayed, color = nestbox_availability)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(
+    x = "Environmental Quality (deciduous vs. coniferous forest)",
+    y = "Proportion of Birds which did not Disperse",
+    color = "Nestbox Availability"
+  ) +
+  theme_minimal()

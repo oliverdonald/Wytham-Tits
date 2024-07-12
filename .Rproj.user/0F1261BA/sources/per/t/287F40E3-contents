@@ -1,0 +1,61 @@
+tit_data <- Copy_of_internal_dispersal_2_By_Year_1
+summary(tit_data)
+
+# investigating whether there is a relationship between population size and the mean distance of natal dispersal
+# based on the theory that smaller populations might suffer greater inbreeding depression and thus the mean natal dispersal might increase
+# may be sex difference in dispersal distance; possible consequence on inbreeding?
+
+# Year = year of birth
+# N = number of nestlings that were recruited to the breeding population in future years (I,.e. for which we have dispersal distance data)
+# Mean dist (split for males and females) is the distance between natal box and where they settled to breed as adults
+# Pop size – great tit population in that year
+# N (sex) is the number of male and female dispersers observed in each year
+
+library(ggplot2)
+dispersal_data <- read.csv("natal_dispersal_data.csv")
+summary(dispersal_data)
+
+# relationship between population size and mean male dispersal distance
+ggplot(dispersal_data, aes(x = Pop.Size, y = Mean.dist..M.)) + geom_point() + geom_smooth(method = "lm", se = FALSE)
+lm_model <- lm(Mean.dist..M. ~ Pop.Size, data = dispersal_data)
+summary(lm_model)
+
+# relationship between population size and mean female dispersal distance
+ggplot(dispersal_data, aes(x = Pop.Size, y = Mean.dist..F.)) + geom_point() + geom_smooth(method = "lm", se = FALSE)
+lm_model <- lm(Mean.dist..F. ~ Pop.Size, data = dispersal_data)
+summary(lm_model)
+
+# relationship between may temperature (the typical month of fledging) and mean male dispersal distance
+ggplot(dispersal_data, aes(x = May_temperature, y = Mean.dist..M.)) + geom_point() + geom_smooth(method = "lm", se = FALSE)
+lm_model_maletemperature <- lm(Mean.dist..M. ~ May_temperature, data = dispersal_data)
+summary(lm_model_maletemperature)
+
+# relationship between may temperature (the typical month of fledging) and mean female dispersal distance
+ggplot(dispersal_data, aes(x = May_temperature, y = Mean.dist..F.)) + geom_point() + geom_smooth(method = "lm", se = FALSE)
+lm_model_femaletemperature <- lm(Mean.dist..F. ~ May_temperature, data = dispersal_data)
+summary(lm_model_femaletemperature)
+
+# have a look at population size and/or May_temperature in the previous time step (the previous year) and its effects on mean dispersal distance in both males and females.
+
+dispersal_data_timeshifted <- read.csv("natal_dispersal_data_timeshifted.csv")
+dispersal_data_timeshifted
+
+# relationship between mean male natal dispersal distance and the population size in the previous year.
+ggplot(dispersal_data_timeshifted, aes(x = Pop.Size, y = Mean.dist..M.)) + geom_point() + geom_smooth(method = "lm", se = FALSE)
+lm_model_timeshifted_male <- lm(Mean.dist..M. ~ Pop.Size, data = dispersal_data_timeshifted)
+summary(lm_model_timeshifted_male)
+
+# relationship between mean female natal dispersal distance and the population size in the previous year.
+ggplot(dispersal_data_timeshifted, aes(x = Pop.Size, y = Mean.dist..F.)) + geom_point() + geom_smooth(method = "lm", se = FALSE)
+lm_model_timeshifted_female <- lm(Mean.dist..F. ~ Pop.Size, data = dispersal_data_timeshifted)
+summary(lm_model_timeshifted_female)
+
+# relationship between temperature in the previous year and the mean dispersal distance of males.
+ggplot(dispersal_data_timeshifted, aes(x = May_temperature, y = Mean.dist..M.)) + geom_point() + geom_smooth(method = "lm", se = FALSE)
+lm_model_timeshifted_male_temperature <- lm(Mean.dist..M. ~ May_temperature, data = dispersal_data_timeshifted)
+summary(lm_model_timeshifted_male_temperature)
+
+# relationship between temperature in the previous year and the mean dispersal distance of females.
+ggplot(dispersal_data_timeshifted, aes(x = May_temperature, y = Mean.dist..F.)) + geom_point() + geom_smooth(method = "lm", se = FALSE)
+lm_model_timeshifted_female_temperature <- lm(Mean.dist..F. ~ May_temperature, data = dispersal_data_timeshifted)
+summary(lm_model_timeshifted_female_temperature)

@@ -1,0 +1,245 @@
+# Set the file paths (change these to the actual paths on your system)
+adult_file <- "C:\\Users\\olive\\OneDrive - Nexus365/breedingadult_data_bagley.csv"
+nestling_file <- "C:\\Users\\olive\\OneDrive - Nexus365/nestling_data_bagley.csv"
+
+# Read the files
+adults <- readr::read_csv(adult_file)
+pulli <- readr::read_csv(nestling_file)
+
+# Clean column names using janitor
+adults <- janitor::clean_names(adults)
+pulli <- janitor::clean_names(pulli)
+
+# Based on the `ringno` column, get the rows in adults that are present in pulli
+resident_adults <- adults |>
+  dplyr::filter(ringno %in% pulli$ringno)
+
+# print how many unique ring numbers are present in the resident_adults
+print(length(unique(resident_adults$ringno)))
+
+# For each ring number in resident_adults, get the corresponding rows in pulli
+# and create a combined data frame
+combined <- resident_adults |>
+  dplyr::left_join(pulli,
+                   by = c("ringno" = "ringno"),
+                   suffix = c("_adult", "_pulli")
+  )
+
+# You can now query this dataset to find out where each resident bird first
+# bred.
+
+# For example, get the natal box of tc62204, its sex, and the
+# nestbox_availability (missing in thsi case)
+print(unique(combined[combined$ringno == "tc62204", "nestbox_origin"]))
+print(unique(combined[combined$ringno == "tc62204", "sex"]))
+print(unique(combined[combined$ringno == "tc62204", "nestbox_availability"]))
+
+# incidentally, this had already been done in the data you had been sent
+# (natalnestbox column in the adult data frame), so you can also check it as
+# follows
+print(unique(adults[adults$ringno == "tc62204", "natalnestbox"]))
+
+# The combined dataframe has a 'plot', a 'plot_rearing' column, and a
+# 'environmental_quality' column. You can use these to find for each rearing
+# plot 'plot_rearing' if the proportion of birds that stayed in it ('plot'
+# column) is higher in plots with higher environmental quality.
+
+# Calculate the proportion of birds that stayed in each plot_rearing
+prop_plot_rearing <- combined |>
+  # Ensure that the plot and plot_rearing columns are in the same case
+  dplyr::mutate(
+    plot = toupper(plot),
+    plot_rearing = toupper(plot_rearing)
+  ) |>
+  dplyr::group_by(plot_rearing) |>
+  # remove rows where plot is missing
+  dplyr::filter(!is.na(plot_rearing)) |>
+  dplyr::summarise(
+    prop_stayed = sum(plot == plot_rearing) / dplyr::n(),
+    n_stayed = sum(plot == plot_rearing),
+    sample_size = dplyr::n()
+  ) |>
+  # add the environmental quality of each plot_rearing
+  dplyr::left_join(
+    combined |>
+      dplyr::select(plot_rearing, environmental_quality) |>
+      dplyr::distinct(),
+    by = "plot_rearing"
+  )
+# Plot the proportion of birds that stayed in each plot against its
+# environmental quality
+ggplot2::ggplot(
+  prop_plot_rearing,
+  ggplot2::aes(
+    x = environmental_quality,
+    y = prop_stayed,
+    color = plot_rearing,
+    size = sample_size
+  )
+) +
+  ggplot2::geom_point(
+    position =
+      ggplot2::position_jitter(
+        width = 0.05, height = 0.01
+      )
+  ) +
+  # add a line to show the median proportion of birds that stayed in each
+  # plot_rearing (calculate for each environmental quality)
+  
+  
+  ggplot2::labs(
+    title = "The Effect of Habitat Type on Dispersal",
+    x = "Environmental Quality (Deciduous vs. Coniferous)",
+    y = "Proportion of Birds that did not Disperse",
+    color = "Rearing Plot",
+    size = "Sample Size"
+  ) +
+  ggplot2::scale_size_continuous(
+    range = c(5, 12),
+    breaks = c(
+      min(prop_plot_rearing$sample_size),
+      median(prop_plot_rearing$sample_size), max(prop_plot_rearing$sample_size)
+    )
+  ) +
+  ggplot2::theme_minimal()
+
+# Calculate the proportion of birds that stayed in each plot_rearing
+prop_plot_rearing <- combined |>
+  # Ensure that the plot and plot_rearing columns are in the same case
+  dplyr::mutate(
+    plot = toupper(plot),
+    plot_rearing = toupper(plot_rearing)
+  ) |>
+  dplyr::group_by(plot_rearing) |>
+  # remove rows where plot is missing
+  dplyr::filter(!is.na(plot_rearing)) |>
+  dplyr::summarise(
+    prop_stayed = sum(plot == plot_rearing) / dplyr::n(),
+    n_stayed = sum(plot == plot_rearing),
+    sample_size = dplyr::n()
+  ) |>
+  # add the environmental quality of each plot_rearing
+  dplyr::left_join(
+    combined |>
+      dplyr::select(plot_rearing, environmental_quality, nestbox_availability) |>
+      dplyr::distinct(),
+    by = "plot_rearing"
+  )
+# Plot the proportion of birds that stayed in each plot against its
+# nestbox availability
+ggplot2::ggplot(
+  prop_plot_rearing,
+  ggplot2::aes(
+    x = nestbox_availability,
+    y = prop_stayed,
+    color = plot_rearing,
+    size = sample_size
+  )
+) +
+  ggplot2::geom_point(
+    position =
+      ggplot2::position_jitter(
+        width = 0.05, height = 0.01
+      )
+  ) +
+  # add a line to show the median proportion of birds that stayed in each
+  # plot_rearing (calculate for each environmental quality)
+  
+  
+  ggplot2::labs(
+    title = "The Effect of Breeding Density on Dispersal",
+    x = "Nestbox Density",
+    y = "Proportion of Birds that did not Disperse",
+    color = "Rearing Plot",
+    size = "Sample Size"
+  ) +
+  ggplot2::scale_size_continuous(
+    range = c(3, 12),
+    breaks = c(
+      min(prop_plot_rearing$sample_size),
+      median(prop_plot_rearing$sample_size), max(prop_plot_rearing$sample_size)
+    )
+  ) +
+  ggplot2::theme_minimal()
+
+install.packages("sjPlot")
+
+# run a GLM to see if environmental quality and nestbox availability and their
+# interaction are correlated with the proportion of birds that stayed in the
+# natal plot
+model <- stats::glm(
+  cbind(n_stayed, sample_size - n_stayed ) ~ environmental_quality * nestbox_availability,
+  data = prop_plot_rearing,
+  family = binomial(link="logit")
+)
+
+# plot results summary table
+sjPlot::tab_model(model)
+
+summary(model)
+
+# plot results graphically using sjPlot
+plot = sjPlot::plot_model(model, type = "pred", terms = c("environmental_quality", "nestbox_availability"))
+plot + 
+  ggplot2::geom_line(aes(group = nestbox_availability, color = nestbox_availability), size = 1) +
+  ggplot2::theme_minimal() + 
+  ggplot2::theme(aspect.ratio = 1.6) +
+  ggplot2::labs(
+    title = "Proportion of Birds that Stayed in the Natal Plot",
+    x = "Environmental Quality",
+    y = "Proportion of Birds that Stayed",
+    color = "Nestbox\nAvailability"
+  )
+
+# run a GLM to see if environmental quality and nestbox availability (not including
+# an interaction) are correlated with the proportion of birds that stayed in the
+# natal plot
+model1 <- stats::glm(
+  cbind(n_stayed, sample_size - n_stayed ) ~ environmental_quality,
+  data = prop_plot_rearing,
+  family = binomial(link="logit")
+)
+
+# plot results summary table
+sjPlot::tab_model(model1)
+
+summary(model1)
+
+# plot results graphically using sjPlot
+plot = sjPlot::plot_model(model1, type = "pred", terms = c("environmental_quality"))
+plot + 
+  ggplot2::geom_line(aes(group = 1), color = "red", size = 1) + # Add lines between points
+  ggplot2::theme_minimal() + 
+  ggplot2::theme(aspect.ratio = 1.6) +
+  ggplot2::labs(
+    title = "Proportion of Birds that did not Disperse",
+    x = "Environmental Quality",
+    y = "Proportion of Birds that Stayed"
+  )
+
+# run a GLM to see if environmental quality and nestbox availability and their
+# interaction are correlated with the proportion of birds that stayed in the
+# natal plot
+model2 <- stats::glm(
+  cbind(n_stayed, sample_size - n_stayed ) ~ nestbox_availability,
+  data = prop_plot_rearing,
+  family = binomial(link="logit")
+)
+
+# plot results summary table
+sjPlot::tab_model(model2)
+
+summary(model2)
+
+# plot results graphically using sjPlot
+plot = sjPlot::plot_model(model2, type = "pred", terms = c("environmental_quality", "nestbox_availability"))
+plot + 
+  ggplot2::geom_line(aes(group = nestbox_availability, color = nestbox_availability), size = 1) +
+  ggplot2::theme_minimal() + 
+  ggplot2::theme(aspect.ratio = 1.6) +
+  ggplot2::labs(
+    title = "Proportion of Birds that Stayed in the Natal Plot",
+    x = "Environmental Quality",
+    y = "Proportion of Birds that did not Disperse",
+    color = "Nestbox\nAvailability"
+  )

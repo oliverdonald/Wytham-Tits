@@ -1,0 +1,245 @@
+base_directory <- "C:\\Users\\olive\\OneDrive - Nexus365"
+
+# Set the file paths with absolute paths
+adult_file <- "C:\\Users\\olive\\OneDrive - Nexus365/breedingadult_data_bagley.csv"
+nestling_file <- "C:\\Users\\olive\\OneDrive - Nexus365/nestling_data_bagley.csv"
+
+install.packages("readr")
+
+# Read the files
+adults <- readr::read_csv(adult_file)
+pulli <- readr::read_csv(nestling_file)
+
+install.packages("janitor")
+
+# Clean column names using janitor
+adults <- janitor::clean_names(adults)
+pulli <- janitor::clean_names(pulli)
+
+# Based on the `ringno` column, get the rows in adults that are present in pulli
+resident_adults <- adults |>
+  dplyr::filter(ringno %in% pulli$ringno)
+
+# print how many unique ring numbers are present in the resident_adults
+print(length(unique(resident_adults$ringno)))
+
+# For each ring number in resident_adults, get the corresponding rows in pulli
+# and create a combined data frame
+combined <- resident_adults |>
+  dplyr::left_join(pulli,
+                   by = c("ringno" = "ringno"),
+                   suffix = c("_adult", "_pulli")
+  )
+
+# You can now query this dataset to find out where each resident bird first
+# bred.
+
+# For example, get the natal box of tc62204, and its sex
+print(unique(combined[combined$ringno == "tc62204", "nestbox_origin"]))
+print(unique(combined[combined$ringno == "tc62204", "sex"]))
+
+# incidentally, this had already been done in the data you had been sent
+# (natalnestbox column in the adult data frame), so you can also check it as
+# follows
+print(unique(adults[adults$ringno == "tc62204", "natalnestbox"]))
+
+combined
+summary(combined)
+
+# Load necessary library
+library(ggplot2) # for visualization (optional)
+
+# The combined dataframe has a 'plot', a 'plot_rearing' column, and a
+# 'environmental_quality' column. You can use these to find for each rearing
+# plot 'plot_rearing' if the proportion of birds that stayed in it ('plot'
+# column) is higher in plots with higher environmental quality.
+
+# Calculate the proportion of birds that stayed in each plot_rearing
+prop_plot_rearing <- combined |>
+  # Ensure that the plot and plot_rearing columns are in the same case
+  dplyr::mutate(
+    plot = toupper(plot),
+    plot_rearing = toupper(plot_rearing)
+  ) |>
+  dplyr::group_by(plot_rearing) |>
+  # remove rows where plot is missing
+  dplyr::filter(!is.na(plot_rearing)) |>
+  dplyr::summarise(
+    prop_stayed = sum(plot == plot_rearing) / dplyr::n(),
+    sample_size = dplyr::n()
+  ) |>
+  # add the environmental quality of each plot_rearing
+  dplyr::left_join(
+    combined |>
+      dplyr::select(plot_rearing, environmental_quality, nestbox_availability) |>
+      dplyr::distinct(),
+    by = "plot_rearing"
+  )
+# Plot the proportion of birds that stayed in each plot against its
+dplyr::left_join(
+  combined |>
+    dplyr::select(plot_rearing, environmental_quality, nestbox_availability) |>
+    dplyr::distinct(),
+  by = "plot_rearing"
+)
+# environmental quality
+
+ggplot2::ggplot(
+  prop_plot_rearing,
+  ggplot2::aes(
+    x = environmental_quality,
+    y = prop_stayed,
+    color = plot_rearing,
+    size = sample_size
+  )
+) +
+  ggplot2::geom_point(
+    position =
+      ggplot2::position_jitter(
+        width = 0.05, height = 0.01
+      )
+  ) +
+  # add a line to show the median proportion of birds that stayed in each
+  # plot_rearing (calculate for each environmental quality)
+  
+  
+  ggplot2::labs(
+    x = "Environmental Quality (deciduous vs. coniferous forest)",
+    y = "Proportion of Birds which did not Disperse",
+    color = "Origin Plot",
+    size = "Sample Size"
+  ) +
+  ggplot2::scale_size_continuous(
+    range = c(1, 10),
+    breaks = c(
+      min(prop_plot_rearing$sample_size),
+      median(prop_plot_rearing$sample_size), max(prop_plot_rearing$sample_size)
+    )
+  ) +
+  ggplot2::theme_minimal()
+
+# Calculate the proportion of birds that stayed in each plot_rearing
+prop_plot_rearing <- combined |>
+  # Ensure that the plot and plot_rearing columns are in the same case
+  dplyr::mutate(
+    plot = toupper(plot),
+    plot_rearing = toupper(plot_rearing)
+  ) |>
+  dplyr::group_by(plot_rearing) |>
+  # remove rows where plot is missing
+  dplyr::filter(!is.na(plot_rearing)) |>
+  dplyr::summarise(
+    prop_stayed = sum(plot == plot_rearing) / dplyr::n(),
+    sample_size = dplyr::n()
+  ) |>
+  # add the nest box availability of each plot_rearing
+  dplyr::left_join(
+    combined |>
+      dplyr::select(plot_rearing, nestbox_availability) |>
+      dplyr::distinct(),
+    by = "plot_rearing"
+  )
+# Plot the proportion of birds that stayed in each plot against its
+# nest box availability
+ggplot2::ggplot(
+  prop_plot_rearing,
+  ggplot2::aes(
+    x = nestbox_availability,
+    y = prop_stayed,
+    color = plot_rearing,
+    size = sample_size
+  )
+) +
+  ggplot2::geom_point(
+    position =
+      ggplot2::position_jitter(
+        width = 0.05, height = 0.01
+      )
+  ) +
+  # add a line to show the median proportion of birds that stayed in each
+  # plot_rearing (calculate for each nest box availability)
+  
+  
+  ggplot2::labs(
+    x = "Nest box density",
+    y = "Proportion of Birds that did not Disperse",
+    color = "Origin Plot",
+    size = "Sample Size"
+  ) +
+  ggplot2::scale_size_continuous(
+    range = c(1, 10),
+    breaks = c(
+      min(prop_plot_rearing$sample_size),
+      median(prop_plot_rearing$sample_size), max(prop_plot_rearing$sample_size)
+    )
+  ) +
+  ggplot2::theme_minimal()
+
+# Display the combined data frame and summary
+print(combined)
+summary(combined)
+
+# Calculate the proportion of birds that stayed in each plot
+prop_plot_rearing <- combined %>%
+  mutate(
+    plot = toupper(plot),
+    plot_rearing = toupper(plot_rearing)
+  ) %>%
+  group_by(plot) %>%
+  filter(!is.na(plot)) %>%
+  summarise(
+    prop_stayed = sum(plot == plot_rearing) / n(),
+    sample_size = n()
+  )
+
+# Display the proportion of birds that stayed in each plot
+print(prop_plot)
+
+# Calculate the proportion of birds that stayed in each plot
+prop_plot_rearing <- combined %>%
+  mutate(
+    plot = toupper(plot),
+    plot_rearing = toupper(plot_rearing)
+  ) %>%
+  group_by(plot) %>%
+  filter(!is.na(plot)) %>%
+  summarise(
+    prop_stayed = sum(plot == plot_rearing) / n(),
+    sample_size = n(),
+    environmental_quality = first(environmental_quality),
+    nestbox_availability = first(nestbox_availability)
+  )
+
+print(prop_plot)
+
+prop_plot_rearing <- combined |>
+  # Ensure that the plot and plot_rearing columns are in the same case
+  dplyr::mutate(
+    plot = toupper(plot),
+    plot_rearing = toupper(plot_rearing)
+  ) |>
+  dplyr::group_by(plot_rearing) |>
+  # remove rows where plot is missing
+  dplyr::filter(!is.na(plot_rearing)) |>
+  dplyr::summarise(
+    prop_stayed = sum(plot == plot_rearing) / dplyr::n(),
+    sample_size = dplyr::n()
+  )
+prop_stayed = sum(plot == plot_rearing) / dplyr::n()
+
+# ANOVA
+tit_anova <- aov( ~ environmental_quality * nestbox_availability, data = combined)
+summary(tit_anova)
+
+# Visualize the interaction
+ggplot(prop_plot, aes(x = environmental_quality, y = prop_stayed, color = nestbox_availability)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(
+    x = "Environmental Quality (deciduous vs. coniferous forest)",
+    y = "Proportion of Birds which did not Disperse",
+    color = "Nestbox Availability"
+  ) +
+  theme_minimal()
+
+
